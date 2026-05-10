@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="navbar">
+    <h2>Admin Dashboard</h2>
+    <a href="landing.html">Logout</a>
+</div>
+
+<div class="container">
+
+    <!-- ✅ CALENDAR SECTION -->
+    <h3>Calendar</h3>
+
+    <div>
+        <button onclick="prevMonth()">Prev</button>
+        <button onclick="nextMonth()">Next</button>
+    </div>
+
+    <div id="calendar"></div>
+
+    <!-- Modal -->
+    <div id="eventModal" style="display:none;">
+        <h3>Add Event</h3>
+        <input id="eventTitle" placeholder="Event Title"><br><br>
+        <input id="startTime" type="time"><br><br>
+        <input id="endTime" type="time"><br><br>
+
+        <button onclick="saveEvent()">Save</button>
+        <button onclick="closeModal()">Close</button>
+    </div>
+
+    <!-- USERS -->
+    <h3 style="margin-top:30px;">All Users</h3>
+    <table id="usersTable">
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+        </tr>
+    </table>
+
+    <!-- EVENTS -->
+    <h3 style="margin-top:30px;">All Events</h3>
+    <table id="eventsTable">
+        <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </table>
+
+</div>
+
+<!-- ✅ IMPORTANT: LOAD CALENDAR SCRIPT -->
+<script src="js/script.js"></script>
+
+<script>
+
+// ================= LOAD USERS =================
+async function loadUsers() {
+    let res = await fetch("http://127.0.0.1:8000/users");
+    let users = await res.json();
+
+    let table = document.getElementById("usersTable");
+
+    users.forEach(u => {
+        let row = table.insertRow();
+        row.insertCell(0).innerText = u.name;
+        row.insertCell(1).innerText = u.email;
+    });
+}
+
+// ================= LOAD EVENTS =================
+async function loadEventsAdmin() {
+    let res = await fetch("http://127.0.0.1:8000/events");
+    let events = await res.json();
+
+    let table = document.getElementById("eventsTable");
+
+    table.innerHTML = `
+        <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    `;
+
+    events.forEach(e => {
+        let row = table.insertRow();
+
+        row.insertCell(0).innerText = e.title;
+        row.insertCell(1).innerText = e.date;
+        row.insertCell(2).innerText = e.user_name;
+        row.insertCell(3).innerText = e.status;
+
+        let actions = row.insertCell(4);
+
+        let buttons = `
+            <button onclick="deleteEvent(${e.id})">Delete</button>
+            <button onclick="rescheduleEvent(${e.id})">Reschedule</button>
+        `;
+
+        if (e.status === "pending") {
+            buttons += `
+                <button onclick="approveEvent(${e.id})">Approve</button>
+                <button onclick="rejectEvent(${e.id})">Reject</button>
+            `;
+        }
+
+        if (e.status === "pending_cancel") {
+            buttons += `
+                <button onclick="approveCancel(${e.id})">Approve Cancel</button>
+                <button onclick="rejectCancel(${e.id})">Reject Cancel</button>
+            `;
+        }
+
+        actions.innerHTML = buttons;
+    });
+}
+
+// ================= ACTIONS =================
+async function deleteEvent(id) {
+    await fetch(`http://127.0.0.1:8000/delete-event/${id}`, { method: "DELETE" });
+    refresh();
+}
+
+async function approveEvent(id) {
+    await fetch(`http://127.0.0.1:8000/approve/${id}`, { method: "PUT" });
+    refresh();
+}
+
+async function rejectEvent(id) {
+    await fetch(`http://127.0.0.1:8000/reject/${id}`, { method: "PUT" });
+    refresh();
+}
+
+async function approveCancel(id) {
+    await fetch(`http://127.0.0.1:8000/approve-cancel/${id}`, { method: "PUT" });
+    refresh();
+}
+
+async function rejectCancel(id) {
+    await fetch(`http://127.0.0.1:8000/reject-cancel/${id}`, { method: "PUT" });
+    refresh();
+}
+
+async function rescheduleEvent(id) {
+    let newDate = prompt("Enter date (YYYY-MM-DD)");
+    let start = prompt("Start time");
+    let end = prompt("End time");
+
+    await fetch(`http://127.0.0.1:8000/reschedule/${id}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            date: newDate,
+            start_time: start,
+            end_time: end
+        })
+    });
+
+    refresh();
+}
+
+// ================= REFRESH =================
+function refresh() {
+    loadEventsAdmin();
+    loadEvents().then(() => renderCalendar(currentMonth, currentYear)); // 🔥 calendar refresh
+}
+
+// ================= INIT =================
+loadUsers();
+loadEventsAdmin();
+
+</script>
+
+</body>
+</html>
